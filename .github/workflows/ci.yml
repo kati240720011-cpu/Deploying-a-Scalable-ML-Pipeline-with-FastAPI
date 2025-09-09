@@ -1,3 +1,11 @@
+name: Python CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -12,12 +20,16 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -V
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          pip install -r requirements.txt
           pip install flake8 pytest
 
-      - name: Lint
-        run: flake8 .
+      - name: Lint (flake8, verbose)
+        run: |
+          flake8 --version
+          python -m flake8 -v .
 
-      - name: Test
-        run: pytest -q
+      - name: Test (pytest)
+        run: |
+          python -m pytest -q
