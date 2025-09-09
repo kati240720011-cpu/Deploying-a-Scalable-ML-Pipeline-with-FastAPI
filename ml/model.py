@@ -1,128 +1,82 @@
-import pickle
+"""
+ML utility functions: training, saving/loading, inference, metrics, and slice metrics.
+This version matches the Starter Kit layout and can drop-in replace ml/model.py.
+"""
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import List, Tuple, Dict
+import numpy as np
+import pandas as pd
+from sklearn.compose import ColumnTransformer
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import fbeta_score, precision_score, recall_score
-from ml.data import process_data
-# TODO: add necessary import
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import OneHotEncoder
+import joblib
 
-# Optional: implement hyperparameter tuning.
-def train_model(X_train, y_train):
-    """
-    Trains a machine learning model and returns it.
+# expected categorical columns in the Adult/Census dataset
+CATEGORICAL_FEATURES: List[str] = [
+    "workclass",
+    "education",
+    "marital-status",
+    "occupation",
+    "relationship",
+    "race",
+    "sex",
+    "native-country",
+]
+TARGET = "salary"  # "<=50K" or ">50K" (strings) or 0/1
 
-    Inputs
-    ------
-    X_train : np.array
-        Training data.
-    y_train : np.array
-        Labels.
-    Returns
-    -------
-    model
-        Trained machine learning model.
-    """
-    # TODO: implement the function
-    pass
+@dataclass
+class Artifacts:
+    model: Pipeline
+    categorical_features: List[str] | None = None
+    def save(self, outdir: str) -> None:
+        joblib.dump(self.model, f"{outdir}/model.joblib")
+        meta = {"categorical_features": self.categorical_features or CATEGORICAL_FEATURES, "target": TARGET}
+        joblib.dump(meta, f"{outdir}/meta.joblib")
+    @staticmethod
+    def load(outdir: str) -> "Artifacts":
+        model = joblib.load(f"{outdir}/model.joblib")
+        meta = joblib.load(f"{outdir}/meta.joblib")
+        return Artifacts(model=model, categorical_features=meta["categorical_features"])
 
+def _build_pipeline(cat_features: List[str]) -> Pipeline:
+    enc = OneHotEncoder(handle_unknown="ignore", sparse_output=False)
+    pre = ColumnTransformer([("cat", enc, cat_features)], remainder="passthrough")
+    clf = LogisticRegression(max_iter=1000)
+    return Pipeline([("pre", pre), ("clf", clf)])
 
-def compute_model_metrics(y, preds):
-    """
-    Validates the trained machine learning model using precision, recall, and F1.
+def train_model(X_train: pd.DataFrame, y_train: pd.Series, categorical_features: List[str] | None = None) -> Pipeline:
+    cats = categorical_features or CATEGORICAL_FEATURES
+    pipe = _build_pipeline(cats)
+    pipe.fit(X_train, y_train)
+    return pipe
 
-    Inputs
-    ------
-    y : np.array
-        Known labels, binarized.
-    preds : np.array
-        Predicted labels, binarized.
-    Returns
-    -------
-    precision : float
-    recall : float
-    fbeta : float
-    """
-    fbeta = fbeta_score(y, preds, beta=1, zero_division=1)
-    precision = precision_score(y, preds, zero_division=1)
-    recall = recall_score(y, preds, zero_division=1)
-    return precision, recall, fbeta
+def inference(model: Pipeline, X: pd.DataFrame) -> np.ndarray:
+    return model.predict(X)
 
+def compute_model_metrics(y_true: np.ndarray, y_pred: np.ndarray) -> Tuple[float, float, float]:
+    """Return precision, recall, f1 (beta=1)."""
+    def to01(a):
+        a = np.asarray(a)
+        if a.dtype.kind in {"i", "u", "b"}:
+            return a
+        return np.array([1 if str(v).strip().startswith(">") or str(v) in {"1","True"} else 0 for v in a])
+    yt, yp = to01(y_true), to01(y_pred)
+    precision = precision_score(yt, yp, zero_division=0)
+    recall = recall_score(yt, yp, zero_division=0)
+    f1 = fbeta_score(yt, yp, beta=1.0, zero_division=0)
+    return precision, recall, f1
 
-def inference(model, X):
-    """ Run model inferences and return the predictions.
-
-    Inputs
-    ------
-    model : ???
-        Trained machine learning model.
-    X : np.array
-        Data used for prediction.
-    Returns
-    -------
-    preds : np.array
-        Predictions from the model.
-    """
-    # TODO: implement the function
-    pass
-
-def save_model(model, path):
-    """ Serializes model to a file.
-
-    Inputs
-    ------
-    model
-        Trained machine learning model or OneHotEncoder.
-    path : str
-        Path to save pickle file.
-    """
-    # TODO: implement the function
-    pass
-
-def load_model(path):
-    """ Loads pickle file from `path` and returns it."""
-    # TODO: implement the function
-    pass
-
-
-def performance_on_categorical_slice(
-    data, column_name, slice_value, categorical_features, label, encoder, lb, model
-):
-    """ Computes the model metrics on a slice of the data specified by a column name and
-
-    Processes the data using one hot encoding for the categorical features and a
-    label binarizer for the labels. This can be used in either training or
-    inference/validation.
-
-    Inputs
-    ------
-    data : pd.DataFrame
-        Dataframe containing the features and label. Columns in `categorical_features`
-    column_name : str
-        Column containing the sliced feature.
-    slice_value : str, int, float
-        Value of the slice feature.
-    categorical_features: list
-        List containing the names of the categorical features (default=[])
-    label : str
-        Name of the label column in `X`. If None, then an empty array will be returned
-        for y (default=None)
-    encoder : sklearn.preprocessing._encoders.OneHotEncoder
-        Trained sklearn OneHotEncoder, only used if training=False.
-    lb : sklearn.preprocessing._label.LabelBinarizer
-        Trained sklearn LabelBinarizer, only used if training=False.
-    model : ???
-        Model used for the task.
-
-    Returns
-    -------
-    precision : float
-    recall : float
-    fbeta : float
-
-    """
-    # TODO: implement the function
-    X_slice, y_slice, _, _ = process_data(
-        # your code here
-        # for input data, use data in column given as "column_name", with the slice_value 
-        # use training = False
-    )
-    preds = None # your code here to get prediction on X_slice using the inference function
-    precision, recall, fbeta = compute_model_metrics(y_slice, preds)
-    return precision, recall, fbeta
+def performance_on_categorical_slice(model: Pipeline, data: pd.DataFrame, feature: str, target_col: str = TARGET) -> Dict[str, Tuple[float, float, float]]:
+    """Compute metrics for each unique value of a categorical feature; returns {value: (p,r,f1)}"""
+    if feature not in data.columns:
+        raise ValueError(f"Feature '{feature}' not found.")
+    out: Dict[str, Tuple[float, float, float]] = {}
+    for val, df_s in data.groupby(feature):
+        Xs = df_s.drop(columns=[target_col])
+        ys = df_s[target_col]
+        preds = inference(model, Xs)
+        out[str(val)] = compute_model_metrics(ys, preds)
+    return out

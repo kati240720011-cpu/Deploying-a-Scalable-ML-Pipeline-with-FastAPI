@@ -1,0 +1,16 @@
+education=10th | precision=0.778 recall=0.467 f1=0.583
+education=11th | precision=0.625 recall=0.455 f1=0.526
+education=12th | precision=1.000 recall=0.500 f1=0.667
+education=1st-4th | precision=1.000 recall=0.500 f1=0.667
+education=5th-6th | precision=0.000 recall=0.000 f1=0.000
+education=7th-8th | precision=0.200 recall=0.200 f1=0.200
+education=9th | precision=0.250 recall=0.143 f1=0.182
+education=Assoc-acdm | precision=0.750 recall=0.545 f1=0.632
+education=Assoc-voc | precision=0.632 recall=0.424 f1=0.507
+education=Bachelors | precision=0.721 recall=0.840 f1=0.776
+education=Doctorate | precision=0.911 recall=0.810 f1=0.857
+education=HS-grad | precision=0.683 recall=0.254 f1=0.370
+education=Masters | precision=0.839 recall=0.885 f1=0.861
+education=Preschool | precision=0.000 recall=0.000 f1=0.000
+education=Prof-school | precision=0.820 recall=0.880 f1=0.849
+education=Some-college | precision=0.602 recall=0.411 f1=0.488
